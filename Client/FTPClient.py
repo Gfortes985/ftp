@@ -3,6 +3,7 @@ import json
 import sys
 import base64
 import os
+from tabulate import tabulate
 
 
 class FTPClient:
@@ -35,12 +36,41 @@ class FTPClient:
         else:
             return b'0'.decode()
 
+    def help(self):
+        headers = ['COMMAND','DESCRIPTION']
+        data = [
+                ['help', 'Выводит это сообщение'],
+                ['mkdir (путь)', 'Создает папку по указанному пути'],
+                ['rmdir (путь)', 'Удаляет папку по указанному пути (если папка пуста)'],
+                ['cd (путь)', 'Переход в дирректорию по указанному пути'],
+                ['ls (путь)[opt]', 'Показывает содержимое папки'],
+                ['rm (путь)', 'Удалает файл по указанному пути'],
+                ['rename (имя) (новое имя)','Переименовывает файл'],
+                ['cat (путь)','Выводит содержимое текстового файла по указанному пути'],
+                ['get (путь)','Скачивает файл с сервера по указанному пути'],
+                ['put (путь)','Загружает файл на сервер по указанному пути'],
+                ['exit ','Отключение от сервера и выход из оболочки ftp']
+                ]
+        print(tabulate(data, headers=headers))
+
+    def help2(self):
+        headers = ['COMMAND', 'DESCRIPTION']
+        data = [
+                ['help', 'Выводит это сообщение'],
+                ['login (имя) (пароль)','Авторизация на сервере'],
+                ['register (имя) (пароль)','Регистрация на сервере'],
+                ['exit','Выход из оболочки ftp']
+                ]
+        print(tabulate(data,headers=headers))
+
     def sendData(self):
         self.__socket__.send(json.dumps(['pwd']).encode())
         self.pwd_path = self.receiveData()
         while True:
             if self.is_login:
                 i = input("ftp@shell$"+self.pwd_path+">").split()
+                if len(i) == 0:
+                    continue
                 args = " ".join(i[1:])
                 match i[0]:
                     case 'exit':
@@ -61,6 +91,8 @@ class FTPClient:
                             print(printdata)
                         self.__socket__.send(json.dumps(['pwd']).encode())
                         self.pwd_path = self.receiveData()
+                    case 'help':
+                        self.help()
                     case _:
                         self.__socket__.send(json.dumps(i).encode())
                         printdata = self.receiveData()
@@ -70,6 +102,8 @@ class FTPClient:
                             print(printdata)
             else:
                 i=input("ftp@shell$>").split()
+                if len(i) == 0:
+                    continue
                 args=" ".join(i[1:])
                 match i[0]:
                     case "login":
@@ -97,6 +131,11 @@ class FTPClient:
                             print("Вы успешно зарегистрировались")
                         elif data == '300':
                             print("Пользователь с таким именем уже есть")
+                    case 'exit':
+                        raise KeyboardInterrupt
+                    case 'help':
+                        self.help2()
+
 
 
 

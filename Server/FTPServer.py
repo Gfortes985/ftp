@@ -1,7 +1,6 @@
 import socket
 import _thread
 import json
-import shutil
 import os
 from time import ctime
 from tabulate import tabulate
@@ -21,8 +20,7 @@ class FTPServer():
         self.localHostIp = socket.gethostbyname(socket.gethostname())
         self.__socket__.listen()
         self.clients = {}
-        self.threads={}
-        self.needCheck = True
+
 
     def listen(self) -> None:
         now = datetime.now().time()
@@ -37,7 +35,7 @@ class FTPServer():
             print(f"{now} [INFO] {ip[0]}:{ip[1]} connected ")
             self.clients[client] = []
             client.settimeout(60.0*60)
-            self.threads[ip] = _thread.start_new_thread(self.receiveCommand, (client, ip))
+            _thread.start_new_thread(self.receiveCommand, (client, ip))
 
     def receiveData(self, client) -> None:
         json_data = b""
@@ -96,14 +94,21 @@ class FTPServer():
                 if dir == "..":#path up
                     path[3] = "\\".join(path[3].split('\\')[:-2])
                     path[3] += "\\"
-                    path[4] = "/".join(path[4].split('/')[:-2])
-                    if path[4] == '':
+                    path[4] = "/".join(path[4].split('/')[:-2])+'/'
+                    if path[4] == '/':
                         path[4]='/'
                         path[3]=os.path.abspath(os.path.pardir + '\\fileenv')+'\\'+path[2]+"\\"
-                    print(path[3])
                 elif os.path.exists(path[3]+'\\'.join(splitdir)):
-                    path[3] += '\\'.join(splitdir)+'\\'
-                    path[4] += '/'.join(splitdir)+'/'
+                    if ''.join(dir.split('.')) == '':
+                        path[3] = "\\".join(path[3].split('\\')[:-2])
+                        path[3] += "\\"
+                        path[4] = "/".join(path[4].split('/')[:-2]) + '/'
+                        if path[4] == '/':
+                            path[4] = '/'
+                            path[3] = os.path.abspath(os.path.pardir + '\\fileenv') + '\\' + path[2] + "\\"
+                    else:
+                        path[3] += '\\'.join(splitdir)+'\\'
+                        path[4] += '/'.join(splitdir)+'/'
                 else:
                     return "Данной папки не существует"
             return f""
@@ -193,7 +198,7 @@ class FTPServer():
 
     def login_command(self,login,password,ip,client):
 
-            with open('C:\\Users\\Gfortes\\Desktop\\Encryption\\Server\\credentials.json', 'r') as f:
+            with open('credentials.json', 'r') as f:
                 json_doc = json.loads(f.read())
                 try:
                     if json_doc[f'{login}']['password'] == password:
@@ -203,20 +208,21 @@ class FTPServer():
                         print(f'{now} [INFO] {ip[0]}:{ip[1]} logined as {login}')
                         clientdict = json_doc[f'{login}']
                         self.clients[client] = [clientdict['password'],clientdict['permission'],clientdict['homefolder']]
-                        self.clients[client].append(os.path.abspath(os.path.pardir + '\\fileenv') + '\\' + self.clients[client][2] + '\\')
+                        self.clients[client].append(os.path.abspath(os.path.pardir + '\\fileenv') + '\\'+login+"\\")
                         self.clients[client].append('/')
                         return '200'
                     else:
                         return '400'
-                except:
+                except :
                     return '300'
 
-    def register_command(self,login,password,client):
+    def register_command(self,login,password,ip,client):
             json_doc={}
             with open('credentials.json', 'r') as f:
                 json_doc = json.loads(f.read())
             with open('credentials.json', 'w') as f:
                     if login in json_doc.keys():
+                        f.write(json.dumps(json_doc, sort_keys=True, ensure_ascii=False, indent=4))
                         return '300'
                     else:
                         json_doc[f'{login}'] = {}
@@ -224,7 +230,11 @@ class FTPServer():
                         json_doc[f'{login}']['permission'] = 'user'
                         json_doc[f'{login}']['homefolder'] = login
                         f.write(json.dumps(json_doc, sort_keys=True, ensure_ascii=False, indent=4))
-                        self.mkdir_command(os.path.abspath(os.path.pardir)+"\\fileenv\\"+login,client)
+                        self.clients[client] = [password, 'user',login]
+                        self.clients[client].append(os.path.abspath(os.path.pardir + '\\fileenv') + '\\')
+                        self.clients[client].append('/')
+                        self.mkdir_command(login,client)
+                        self.clients[client][3] += login+"\\"
                         return "200"
 
 
@@ -266,7 +276,7 @@ class FTPServer():
                     case "login":
                         client.send(json.dumps(self.login_command(command[1],command[2],ip,client)).encode())
                     case 'whoami':
-                        client.send(json.dumps(self.clients[client][1]).encode())
+                        client.send(json.dumps(self.clients[client][2]).encode())
                     case 'register':
                         client.send(json.dumps(self.register_command(command[1],command[2],ip,client)).encode())
                     case _:
