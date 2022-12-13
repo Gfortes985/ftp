@@ -17,13 +17,16 @@ class FTPClient:
 
 
     def get_command(self, filename, data):
-        if data != "0":
+        if data == "0":
+            print(f"{filename} является папкой")
+        elif data == '1':
+            print(f"{filename} не найден")
+        else:
             with open(filename, "wb") as f:
                 print(data)
                 f.write(base64.b64decode(data))
             print(f"Скачан файл {filename}")
-        else:
-            print(f"{filename} является папкой")
+
 
     def put_command(self,file):
         if os.path.isfile(file):
@@ -83,6 +86,18 @@ class FTPClient:
                             print("Пользователь с таким именем не найден")
                         else:
                             print("Введеный пароль не верен")
+                    case 'register':
+                        if len(i) < 3:
+                            print("Вы не ввели пароль или имя пользователя")
+                            continue
+                        else:
+                            self.__socket__.send(json.dumps(i).encode())
+                            data = self.receiveData()
+                        if data == '200':
+                            print("Вы успешно зарегистрировались")
+                        elif data == '300':
+                            print("Пользователь с таким именем уже есть")
+
 
 
 
